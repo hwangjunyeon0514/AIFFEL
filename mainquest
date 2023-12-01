@@ -1,0 +1,63 @@
+import tensorflow as tf
+from tensorflow.keras import layers, models
+import matplotlib.pyplot as plt
+import numpy as np
+
+# 1. 실험환경 설정
+BATCH_SIZE = 32
+EPOCHS = 10
+AUTOTUNE = tf.data.experimental.AUTOTUNE
+
+# 2. 데이터 준비 및 전처리 (예시 데이터셋을 사용합니다)
+# 실제 데이터셋을 사용할 때는 여기에 데이터 로딩 및 전처리 코드를 작성합니다.
+(train_ds, val_ds), info = tfds.load('your_dataset', split=['train', 'val'], with_info=True, as_supervised=True)
+
+# 3. 데이터 증강
+def augment(image, label):
+    image = tf.image.random_flip_left_right(image)
+    return image, label
+
+def prepare_for_training(ds, shuffle_buffer_size=1000):
+    ds = ds.map(augment, num_parallel_calls=AUTOTUNE)
+    ds = ds.shuffle(buffer_size=shuffle_buffer_size)
+    ds = ds.repeat()
+    ds = ds.batch(BATCH_SIZE)
+    ds = ds.prefetch(buffer_size=AUTOTUNE)
+    return ds
+
+train_ds = prepare_for_training(train_ds)
+val_ds = prepare_for_training(val_ds)
+
+# 4. ResNet-18 모델 구현
+def resnet_block(inputs, num_filters, kernel_size, strides, activation='relu'):
+    x = layers.Conv2D(num_filters, kernel_size, strides=strides, padding='same')(inputs)
+    x = layers.BatchNormalization()(x)
+    x = layers.Activation(activation)(x)
+    return x
+
+def ResNet18():
+    inputs = layers.Input(shape=(224, 224, 3))
+    x = resnet_block(inputs, 64, 3, 1)
+    # 여기에 ResNet-18 아키텍처에 맞는 나머지 레이어들을 추가합니다.
+    # ...
+    outputs = layers.Dense(1, activation='sigmoid')(x)
+    model = models.Model(inputs, outputs)
+    return model
+
+model = ResNet18()
+
+# 5. 데이터 불균형 처리
+# 클래스 가중치 설정 (예시)
+class_weight = {0: 1.0, 1: 1.5}
+
+# 6. 모델 훈련
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+model.fit(train_ds, epochs=EPOCHS, validation_data=val_ds, class_weight=class_weight)
+
+# 7. 결과 확인 및 시각화
+val_loss, val_acc = model.evaluate(val_ds)
+print("Validation accuracy:", val_acc)
+
+# 학습 과정 시각화
+# ...
+
